@@ -1,0 +1,116 @@
+Data Frames
+
+The core concept
+understand what makes PySpark different from normal Python:
+
+In standard Python (pandas), when you create a DataFrame, it lives inside your computer's single RAM memory stick. If you load 50GB of data on an 8GB laptop, it crashes.
+
+In PySpark, a DataFrame is distributed. When you load data:
+
+Spark splits the data into small blocks called Partitions.
+
+It assigns different partitions to different virtual machines (workers) across a cluster.
+
+When you run .filter() or .groupby(), all machines process their share of the data simultaneously!
+
+[ Raw Data: 10 Million Orders ]
+               │
+               ├── Split into Partitions
+               │
+   ┌───────────┼───────────┐
+   ▼           ▼           ▼
+[Worker 1]  [Worker 2]  [Worker 3]   <-- Compute runs in parallel!
+   │           │           │
+   └───────────┼───────────┘
+               ▼
+[ Final Combined Summary Result ]
+
+SparkSession: This is the entry point to any PySpark program. It is the driver connection that communicates with the cluster of machines. In Databricks, a variable named spark is automatically created for you, so you don't have to build SparkSession manually.
+
+pyspark.sql.functions: PySpark provides built-in functions designed to run in parallel across multiple machines.
+
+col: A helper function used to select or manipulate a specific column in a DataFrame (e.g., col("price")).
+
+sum / avg: Functions to calculate totals and averages across grouped data.
+
+DataFrames are Immutable: In PySpark, once a DataFrame is created, it cannot be modified in place. You cannot just write df["total_amount"] = ... like in standard Python. You must always create a new DataFrame.
+
+filter(): Scans through the DataFrame and keeps only the rows where the expression inside returns Truenow
+
+Conditional Logic and Column Transformations in PySpark, which are used in almost every real-world data engineering pipeline.Instead of basic if/else loops, PySpark uses specialized functions so operations can run in parallel across distributed worker nodes.
+
+Key PySpark Functions to Master
+when().otherwise(): The PySpark equivalent of SQL's CASE WHEN statement or Python's if/else.
+
+lit(): Used to add a hardcoded string or number (a literal value) into a DataFrame column.
+
+select(): Picks specific columns to output, dropping all unmentioned columns.
+
+Learn the when().otherwise() PatternSuppose you want to classify items into pricing tiers based on their price:If price >= 200 $\rightarrow$ "High End"Otherwise $\rightarrow$ "Budget Friendly"
+
+from pyspark.sql.functions import col, when, lit
+
+# Applying conditional logic using when / otherwise
+df_categorized = df.withColumn(
+    "price_tier",
+    when(col("price") >= 200, "High End")
+    .otherwise("Budget Friendly")
+)
+
+df_categorized.show()
+
+What is df.withColumn()?withColumn() is PySpark's primary method for adding a new column or overwriting an existing column in a DataFrame.It takes two arguments:$$\text{df.withColumn}(\text{"column\_name"}, \text{column\_expression})$$column_name (String): The name of the column you want to create or replace.column_expression (Column object): The mathematical operation, function, or logic used to compute the values for that column.
+
+When working with big data across thousands of cluster nodes, holding unused columns in memory slows down performance. select() and drop() are the primary ways to keep your DataFrames lean and fast.
+
+1. select() — Picking Only What You Need
+select() acts like SELECT column_1, column_2 FROM table in SQL. It creates a new DataFrame containing only the columns you explicitly list.
+
+2. drop() — Eliminating Unwanted Columns
+If you have a DataFrame with 50 columns and only want to discard 2, using select() to list 48 column names is tedious. That's where drop() comes in:
+
+Now we cover one of the most critical topics in real-world data engineering: Handling Missing and Null Data (isNull, dropna, and fillna).
+
+In production data pipelines, raw data coming from APIs, databases, or user logs is rarely clean. It often contains missing (null or None) values that can break calculations or produce inaccurate reports if ignored.
+
+Step 1: Create a Dataset with Missing (Null) Values
+
+Step 2: The 3 Ways to Handle Missing Data
+1. Filtering Nulls (isNull() & isNotNull())
+Use these functions when you want to find or isolate rows that contain missing values.
+2. Dropping Rows with Nulls (dropna())
+Use dropna() to remove incomplete rows from your DataFrame.
+3. Filling / Replacing Nulls (fillna())
+Instead of deleting rows, you often want to fill missing values with defaults (like 0 for numeric columns or "Unknown" for string columns).
+
+Summary TableFunctionPurposeExamplecol().isNull()Checks if a column value is nulldf.filter(col("price").isNull())col().isNotNull()Checks if a column value is valid (not null)df.filter(col("price").isNotNull())dropna()Removes rows containing nullsdf.dropna(subset=["price"])fillna()Replaces nulls with default valuesdf.fillna({"price": 0})
+
+Now we move to the final core pillar of PySpark basics: Joins in PySpark (inner, left, right, outer).
+
+In real-world data engineering, data rarely lives in a single table. Transaction details, customer profiles, menu items, and delivery data are stored in separate tables. Joins allow you to merge these tables together using a common key (like item_id or customer_id).
+
+Step 1: Create Two Tables to Join
+Step 2: Understanding Join Types with SyntaxThe general syntax for joining two DataFrames in PySpark is:$$\text{df1.join}(\text{df2}, \text{on="join\_key"}, \text{how="join\_type"})$$1. Inner Join (how="inner") — The DefaultKeeps ONLY records that have a matching key in both tables.
+
+2. Left Join (how="left") — Most Commonly Used
+Keeps ALL rows from the left table (orders_df), even if there is no match in the right table (menu_df). Unmatched columns fill with null.
+
+3. Right Join (how="right")
+Keeps ALL rows from the right table (menu_df), filling missing left-side columns with null
+
+4. Full Outer Join (how="full" or "outer")
+Keeps ALL rows from BOTH tables. Unmatched keys from either side will contain null values.
+
+What are Window Functions?
+Yesterday, you mastered groupBy(), which collapses rows into a single summary row (e.g., combining 10 sales into 1 total revenue row).
+
+Window Functions allow you to perform calculations across a set of rows (like ranking or calculating running totals) without collapsing the table. Every original row stays intact!
+
+Key Functions We Will Cover Today
+row_number(): Assigns a unique sequential number (1, 2, 3...) to each row.
+
+rank(): Ranks rows, but leaves gaps if there are ties (e.g., 1, 2, 2, 4).
+
+dense_rank(): Ranks rows without leaving gaps for ties (e.g., 1, 2, 2, 3).
+
+Window.partitionBy().orderBy(): The engine that defines how data is grouped and sorted for window calculations.
